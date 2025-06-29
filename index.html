@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Calora (Gemini)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      font-family: 'Outfit', sans-serif;
+      background: #fff;
+      color: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 30px;
+      font-weight: 700;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: #eee;
+      border-radius: 10px;
+      padding: 10px 15px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 30px;
+    }
+
+    .search-box img {
+      width: 20px;
+      margin-right: 10px;
+      opacity: 0.6;
+    }
+
+    .search-box input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 1rem;
+      width: 100%;
+    }
+
+    .hidden { display: none; }
+
+    .food-info {
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 30px;
+      line-height: 1.7;
+    }
+
+    .food-info span {
+      font-weight: 700;
+    }
+
+    .quantity-section {
+      text-align: center;
+    }
+
+    .quantity-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      gap: 40px;
+    }
+
+    .btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      font-size: 2rem;
+      color: #fff;
+      background: #333;
+      cursor: pointer;
+    }
+
+    .quantity-number {
+      font-size: 2rem;
+      font-weight: bold;
+      min-width: 30px;
+    }
+
+    .quantity-label {
+      margin-top: 10px;
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+
+    button.log-btn, button.clear-btn {
+      padding: 10px 20px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+      margin-top: 20px;
+      margin-right: 10px;
+    }
+
+    #logSection {
+      margin-top: 30px;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    #logList {
+      list-style: none;
+      padding: 0;
+    }
+
+    #logList li {
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #f2f2f2;
+      border-radius: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #121212;
+        color: #f0f0f0;
+      }
+
+      .search-box {
+        background: #1e1e1e;
+      }
+
+      .btn {
+        background: #444;
+      }
+
+      .log-btn, .clear-btn {
+        background: #444;
+      }
+
+      #logList li {
+        background: #1e1e1e;
+        border: 1px solid #333;
+      }
+    }
+
+    @media (max-width: 500px) {
+      h1 { font-size: 2rem; }
+
+      .food-info { font-size: 1rem; }
+
+      .btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.5rem;
+      }
+
+      .quantity-controls { gap: 25px; }
+
+      button.log-btn, button.clear-btn { width: 100%; margin-right: 0; margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Calora</h1>
+
+  <div class="search-box">
+    <img src="https://cdn-icons-png.flaticon.com/512/54/54481.png" alt="Search">
+    <input type="text" id="searchInput" placeholder="Search Item..." oninput="onSearchChange(this.value)">
+  </div>
+
+  <div id="resultSection" class="hidden">
+    <div class="food-info" id="foodInfo">
+      <div><span>Name:</span> <span id="dishName">—</span></div>
+      <div><span>Calorie:</span> <span id="dishCalories">—</span></div>
+      <div><span>Quantity:</span> <span id="dishQuantity">100g</span></div>
+    </div>
+
+    <div class="quantity-section">
+      <div class="quantity-controls">
+        <button class="btn" onclick="changeQuantity(-1)">−</button>
+        <span class="quantity-number" id="quantity">1</span>
+        <button class="btn" onclick="changeQuantity(1)">+</button>
+      </div>
+      <div class="quantity-label">Quantity</div>
+    </div>
+
+    <div>
+      <button class="log-btn" onclick="logCalories()">Log Calories</button>
+    </div>
+  </div>
+
+  <div id="logSection" class="hidden">
+    <h3 style="font-size: 1.2rem; margin-bottom: 10px;">Calorie Log</h3>
+    <ul id="logList"></ul>
+    <button class="clear-btn" onclick="clearLog()">Clear Log</button>
+  </div>
+
+  <script>
+    const GEMINI_API_KEY = "AIzaSyBQy3ins1gqIiNBzKj2cXJcjwe2nuRYJws";
+    let quantity = 1;
+    let baseCalories = 0;
+    let dishTitle = '';
+    let debounceTimeout;
+
+    window.onload = () => {
+      loadLog();
+    };
+
+    function changeQuantity(change) {
+      quantity = Math.max(1, quantity + change);
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      const totalCalories = (baseCalories * quantity).toFixed(0);
+      const totalGrams = quantity * 100;
+
+      document.getElementById('quantity').innerText = quantity;
+      document.getElementById('dishCalories').innerText = totalCalories;
+      document.getElementById('dishQuantity').innerText = `${totalGrams}g`;
+    }
+
+    function onSearchChange(value) {
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        if (value.length >= 3) {
+          fetchCalories(value);
+        }
+      }, 600);
+    }
+
+    async function fetchCalories(dish) {
+      dishTitle = dish;
+      const grams = quantity * 100;
+      const prompt = `Estimate the number of calories for ${grams} grams of "${dish}". Reply only with the number and the word kcal.`;
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await res.json();
+      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "0 kcal";
+
+      const match = responseText.match(/([\d.]+)\s*kcal/i);
+      baseCalories = match ? parseFloat(match[1]) / quantity : 0;
+
+      updateDisplay();
+      document.getElementById("dishName").innerText = dishTitle;
+      document.getElementById("resultSection").classList.remove("hidden");
+      document.getElementById("logSection").classList.remove("hidden");
+    }
+
+    function logCalories() {
+      const cal = (baseCalories * quantity).toFixed(0);
+      const grams = quantity * 100;
+      const entry = `${dishTitle} — ${grams}g — ${cal} kcal`;
+
+      const listItem = document.createElement("li");
+      listItem.innerText = entry;
+      document.getElementById("logList").appendChild(listItem);
+
+      // Save to localStorage
+      const logs = JSON.parse(localStorage.getItem("caloraLogs")) || [];
+      logs.push(entry);
+      localStorage.setItem("caloraLogs", JSON.stringify(logs));
+    }
+
+    function loadLog() {
+      const logs = JSON.parse(localStorage.getItem("caloraLogs")) || [];
+      if (logs.length > 0) {
+        document.getElementById("logSection").classList.remove("hidden");
+      }
+      logs.forEach(entry => {
+        const listItem = document.createElement("li");
+        listItem.innerText = entry;
+        document.getElementById("logList").appendChild(listItem);
+      });
+    }
+
+    function clearLog() {
+      localStorage.removeItem("caloraLogs");
+      document.getElementById("logList").innerHTML = "";
+    }
+  </script>
+</body>
+</html>
